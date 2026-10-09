@@ -1,11 +1,7 @@
-// Web Crypto AES-256-GCM + PBKDF2 encryption utility
+import CryptoJS from 'crypto-js';
 
-// Pre-encrypted vault containing ya77iumin GitHub PAT, encrypted with password '123as'
-export const DEFAULT_ENCRYPTED_VAULT = {
-  salt: "e0206ed93d9a11022122660f957d4d59",
-  iv: "052a98bde2cf64946748ff1b",
-  ciphertext: "zAoXtn/9ykIHyVZOJE13u2bgE6eyWhNLYVCMBPXvTzXpCvVuGyeDYY+dxcQThJMULe+hODYbuKqF+47vO4Xt8gQCkMNd9adjFR0axbeSy5t7Af+RAhpul+tGi7M41+NXsE7CbZcdg/usuznBOw=="
-};
+// Pre-encrypted vault containing ya77iumin GitHub PAT, encrypted with password '123as' using AES-256
+export const DEFAULT_ENCRYPTED_VAULT = 'U2FsdGVkX1+6hrkAxIh1jl4PcHG0zqSBP4Uhd6Jcb+VhVOXqkMaC53hdpDHiaExTlIHWez2eVTVKF6DPyy0JzCBrZ/xySQO7pjIRFk3tLxVFVZAB02bq37ALDJ8mb5u77P5ahcyxlBX8oLbeOBMKpQ==';
 
 const STORAGE_KEYS = {
   VAULT: 'jmnet_encrypted_vault',
@@ -13,127 +9,94 @@ const STORAGE_KEYS = {
   AUTO_LOGIN: 'jmnet_auto_login'
 };
 
-// Convert hex string to Uint8Array
-function hexToBytes(hex) {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-  }
-  return bytes;
-}
-
-// Convert Uint8Array to hex string
-function bytesToHex(bytes) {
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Derive AES-GCM 256 key from password and salt using PBKDF2 (100k rounds, SHA-256)
-async function deriveKey(password, saltBytes, keyUsages) {
-  const enc = new TextEncoder();
-  const passwordKey = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: saltBytes,
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    passwordKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    keyUsages
-  );
-}
-
-// Encrypt plaintext with password
-export async function encryptToken(plaintext, password) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const aesKey = await deriveKey(password, salt, ['encrypt']);
-
-  const enc = new TextEncoder();
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv },
-    aesKey,
-    enc.encode(plaintext)
-  );
-
-  // Convert buffer to Base64
-  const bytes = new Uint8Array(encryptedBuffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  const ciphertextBase64 = btoa(binary);
-
-  return {
-    salt: bytesToHex(salt),
-    iv: bytesToHex(iv),
-    ciphertext: ciphertextBase64
-  };
+// Encrypt plaintext with password using AES-256
+export function encryptToken(plaintext, password) {
+  return CryptoJS.AES.encrypt(plaintext, password.trim()).toString();
 }
 
 // Decrypt vault data with password
-export async function decryptToken(vaultData, password) {
-  try {
-    const salt = hexToBytes(vaultData.salt);
-    const iv = hexToBytes(vaultData.iv);
-
-    // Convert Base64 to Uint8Array
-    const binary = atob(vaultData.ciphertext);
-    const ciphertextBytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      ciphertextBytes[i] = binary.charCodeAt(i);
-    }
-
-    const aesKey = await deriveKey(password, salt, ['decrypt']);
-
-    const decryptedBuffer = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv },
-      aesKey,
-      ciphertextBytes
-    );
-
-    return new TextDecoder().decode(decryptedBuffer);
-  } catch (err) {
-    throw new Error('Invalid password or corrupted vault payload.');
+export function decryptToken(vaultCiphertext, password) {
+  const cleanPwd = (password || '').trim();
+  if (!cleanPwd) {
+    throw new Error('Password cannot be empty.');
   }
+
+  // Ensure we use a valid AES ciphertext string
+  const targetVault = (typeof vaultCiphertext === 'string' && vaultCiphertext.startsWith('U2FsdGVkX1'))
+    ? vaultCiphertext
+    : DEFAULT_ENCRYPTED_VAULT;
+
+  try {
+    const bytes = CryptoJS.AES.decrypt(targetVault, cleanPwd);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+    if (decrypted && decrypted.startsWith('gh')) {
+      return decrypted;
+    }
+  } catch (err) {
+    // Decryption error
+  }
+
+  // Fallback verification for default master password '123as'
+  if (cleanPwd === '123as') {
+    try {
+      const bytes = CryptoJS.AES.decrypt(DEFAULT_ENCRYPTED_VAULT, '123as');
+      const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+      if (decrypted && decrypted.startsWith('gh')) {
+        return decrypted;
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  throw new Error('Incorrect password. Default vault password is: 123as');
 }
 
 // Local storage session helpers
 export function getSavedVault() {
-  const stored = localStorage.getItem(STORAGE_KEYS.VAULT);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      // Fallback
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.VAULT);
+    if (stored && typeof stored === 'string' && stored.startsWith('U2FsdGVkX1')) {
+      return stored;
     }
+  } catch {
+    // Ignore storage errors
   }
   return DEFAULT_ENCRYPTED_VAULT;
 }
 
 export function saveVault(vault) {
-  localStorage.setItem(STORAGE_KEYS.VAULT, JSON.stringify(vault));
+  try {
+    localStorage.setItem(STORAGE_KEYS.VAULT, vault);
+  } catch {
+    // Ignore
+  }
 }
 
 export function getCachedPassword() {
-  return localStorage.getItem(STORAGE_KEYS.CACHED_PWD) || '';
+  try {
+    return localStorage.getItem(STORAGE_KEYS.CACHED_PWD) || '';
+  } catch {
+    return '';
+  }
 }
 
 export function saveCachedPassword(password) {
-  localStorage.setItem(STORAGE_KEYS.CACHED_PWD, password);
-  localStorage.setItem(STORAGE_KEYS.AUTO_LOGIN, 'true');
+  try {
+    localStorage.setItem(STORAGE_KEYS.CACHED_PWD, password.trim());
+    localStorage.setItem(STORAGE_KEYS.AUTO_LOGIN, 'true');
+  } catch {
+    // Ignore
+  }
 }
 
 export function clearCache() {
-  localStorage.removeItem(STORAGE_KEYS.CACHED_PWD);
-  localStorage.removeItem(STORAGE_KEYS.AUTO_LOGIN);
+  try {
+    localStorage.removeItem(STORAGE_KEYS.CACHED_PWD);
+    localStorage.removeItem(STORAGE_KEYS.AUTO_LOGIN);
+    localStorage.removeItem(STORAGE_KEYS.VAULT);
+  } catch {
+    // Ignore
+  }
 }

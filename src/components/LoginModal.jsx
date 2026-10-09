@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Shield, Lock, KeyRound, Eye, EyeOff, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
-import { decryptToken, getSavedVault, saveCachedPassword, DEFAULT_ENCRYPTED_VAULT } from '../utils/crypto';
+import { Shield, Lock, KeyRound, Eye, EyeOff, AlertCircle, Sparkles } from 'lucide-react';
+import { decryptToken, getSavedVault, saveCachedPassword } from '../utils/crypto';
 
 export default function LoginModal({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
@@ -11,9 +11,10 @@ export default function LoginModal({ onLoginSuccess }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customToken, setCustomToken] = useState('');
 
-  const handleUnlock = async (e) => {
+  const handleUnlock = (e) => {
     e.preventDefault();
-    if (!password.trim()) {
+    const cleanPwd = password.trim();
+    if (!cleanPwd) {
       setError('Please enter the vault password.');
       return;
     }
@@ -23,21 +24,20 @@ export default function LoginModal({ onLoginSuccess }) {
 
     try {
       const vault = getSavedVault();
-      // Attempt AES-256-GCM PBKDF2 decryption
-      const decryptedPat = await decryptToken(vault, password.trim());
+      const decryptedPat = decryptToken(vault, cleanPwd);
       
       if (!decryptedPat || !decryptedPat.startsWith('gh')) {
         throw new Error('Decryption resulted in an invalid token format.');
       }
 
       if (remember) {
-        saveCachedPassword(password.trim());
+        saveCachedPassword(cleanPwd);
       }
 
-      onLoginSuccess(decryptedPat, password.trim());
+      onLoginSuccess(decryptedPat, cleanPwd);
     } catch (err) {
-      console.error('Vault decryption error:', err);
-      setError('Incorrect password or corrupted vault. Default password is: 123as');
+      console.error('Vault unlock error:', err);
+      setError(err.message || 'Incorrect password. Default password is: 123as');
     } finally {
       setLoading(false);
     }
@@ -45,15 +45,16 @@ export default function LoginModal({ onLoginSuccess }) {
 
   const handleDirectCustomLogin = (e) => {
     e.preventDefault();
-    if (!customToken.trim()) {
+    const cleanToken = customToken.trim();
+    if (!cleanToken) {
       setError('Please enter a GitHub Personal Access Token.');
       return;
     }
-    onLoginSuccess(customToken.trim(), 'custom');
+    onLoginSuccess(cleanToken, 'custom');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
       <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl transition-all">
         {/* Glow effect */}
         <div className="absolute -top-24 -left-24 h-48 w-48 rounded-full bg-cyan-500/20 blur-3xl pointer-events-none" />
@@ -69,12 +70,12 @@ export default function LoginModal({ onLoginSuccess }) {
             Encrypted GitHub Backend & Hosting Engine
           </p>
           <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-800/80 px-3 py-1 text-xs font-mono text-cyan-300 border border-slate-700">
-            <Lock className="h-3 w-3" /> AES-256-GCM Encrypted Vault
+            <Lock className="h-3 w-3" /> AES-256 Encrypted Vault
           </div>
         </div>
 
         {error && (
-          <div className="mt-6 flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-950/40 p-3.5 text-left text-sm text-red-300">
+          <div className="mt-6 flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-950/40 p-3.5 text-left text-sm text-red-300 animate-shake">
             <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
             <span>{error}</span>
           </div>
@@ -94,14 +95,14 @@ export default function LoginModal({ onLoginSuccess }) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter vault password (e.g. 123as)"
+                  placeholder="Enter vault password (123as)"
                   className="w-full rounded-xl border border-slate-800 bg-slate-950/60 pl-10 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
                   autoFocus
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-500 hover:text-slate-300"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-500 hover:text-slate-300 cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -128,7 +129,7 @@ export default function LoginModal({ onLoginSuccess }) {
               {loading ? (
                 <>
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Decrypting Vault...</span>
+                  <span>Unlocking Vault...</span>
                 </>
               ) : (
                 <>
@@ -142,7 +143,7 @@ export default function LoginModal({ onLoginSuccess }) {
               <button
                 type="button"
                 onClick={() => setShowAdvanced(true)}
-                className="text-xs text-slate-500 hover:text-slate-400 underline"
+                className="text-xs text-slate-500 hover:text-slate-400 underline cursor-pointer"
               >
                 Manual Token Entry / Overrides
               </button>
@@ -164,7 +165,7 @@ export default function LoginModal({ onLoginSuccess }) {
             </div>
             <button
               type="submit"
-              className="w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 transition"
+              className="w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 transition cursor-pointer"
             >
               Continue with Custom Token
             </button>
@@ -172,7 +173,7 @@ export default function LoginModal({ onLoginSuccess }) {
               <button
                 type="button"
                 onClick={() => setShowAdvanced(false)}
-                className="text-xs text-cyan-400 hover:underline"
+                className="text-xs text-cyan-400 hover:underline cursor-pointer"
               >
                 Back to Password Unlock
               </button>

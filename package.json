@@ -8,10 +8,16 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": ["github-hosting", "cloud-storage", "cdn", "jmnet"],
+  "keywords": [
+    "github-hosting",
+    "cloud-storage",
+    "cdn",
+    "jmnet"
+  ],
   "author": "ya77iumin",
   "license": "MIT",
   "dependencies": {
+    "crypto-js": "^4.2.0",
     "lucide-react": "^1.54.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

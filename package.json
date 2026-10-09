@@ -1,0 +1,25 @@
+{
+  "name": "jmnet",
+  "version": "1.0.0",
+  "description": "JMNet Cloud Backend & File Hosting Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": ["github-hosting", "cloud-storage", "cdn", "jmnet"],
+  "author": "ya77iumin",
+  "license": "MIT",
+  "dependencies": {
+    "lucide-react": "^1.54.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.4"
+  }
+}

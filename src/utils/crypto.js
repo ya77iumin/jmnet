@@ -9,6 +9,21 @@ const STORAGE_KEYS = {
   AUTO_LOGIN: 'jmnet_auto_login'
 };
 
+// Check if a string is a valid GitHub token format
+export function isValidGitHubToken(token) {
+  if (!token || typeof token !== 'string') return false;
+  const t = token.trim();
+  return (
+    t.startsWith('github_pat_') ||
+    t.startsWith('ghp_') ||
+    t.startsWith('gho_') ||
+    t.startsWith('ghu_') ||
+    t.startsWith('ghs_') ||
+    t.startsWith('ghr_') ||
+    t.startsWith('gh')
+  );
+}
+
 // Encrypt plaintext with password using AES-256
 export function encryptToken(plaintext, password) {
   return CryptoJS.AES.encrypt(plaintext, password.trim()).toString();
@@ -30,7 +45,7 @@ export function decryptToken(vaultCiphertext, password) {
     const bytes = CryptoJS.AES.decrypt(targetVault, cleanPwd);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
 
-    if (decrypted && decrypted.startsWith('gh')) {
+    if (isValidGitHubToken(decrypted)) {
       return decrypted;
     }
   } catch (err) {
@@ -42,7 +57,7 @@ export function decryptToken(vaultCiphertext, password) {
     try {
       const bytes = CryptoJS.AES.decrypt(DEFAULT_ENCRYPTED_VAULT, '123as');
       const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-      if (decrypted && decrypted.startsWith('gh')) {
+      if (isValidGitHubToken(decrypted)) {
         return decrypted;
       }
     } catch {

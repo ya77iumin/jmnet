@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, Lock, KeyRound, Eye, EyeOff, AlertCircle, Sparkles } from 'lucide-react';
-import { decryptToken, getSavedVault, saveCachedPassword } from '../utils/crypto';
+import { decryptToken, getSavedVault, saveCachedPassword, isValidGitHubToken } from '../utils/crypto';
 
 export default function LoginModal({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
@@ -26,7 +26,7 @@ export default function LoginModal({ onLoginSuccess }) {
       const vault = getSavedVault();
       const decryptedPat = decryptToken(vault, cleanPwd);
       
-      if (!decryptedPat || !decryptedPat.startsWith('gh')) {
+      if (!isValidGitHubToken(decryptedPat)) {
         throw new Error('Decryption resulted in an invalid token format.');
       }
 

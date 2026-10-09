@@ -10,7 +10,8 @@ import {
   decryptToken, 
   getSavedVault, 
   getCachedPassword, 
-  clearCache 
+  clearCache,
+  isValidGitHubToken 
 } from './utils/crypto';
 import { 
   getUserProfile, 
@@ -40,7 +41,7 @@ export default function App() {
         try {
           const vault = getSavedVault();
           const decryptedPat = await decryptToken(vault, cachedPwd);
-          if (decryptedPat && decryptedPat.startsWith('gh')) {
+          if (isValidGitHubToken(decryptedPat)) {
             setToken(decryptedPat);
             setIsUnlocked(true);
             await fetchAccountData(decryptedPat);
